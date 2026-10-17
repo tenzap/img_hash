@@ -67,6 +67,32 @@ jobs:
           
           cargo doc
 
+      - name: Check reproducible build with rust ${{ matrix.toolchain }}
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+
+          set -x
+          for val in release debug; do
+            ARGS=()
+            if [ "$val" == "release" ]; then
+              ARGS+=(--${val})
+            fi
+            if [[ "${{ matrix.toolchain }}" == "nightly" ]]; then
+              ARGS+=(--features "fast_resize_unstable,nightly")
+            else
+              ARGS+=(--features "fast_resize_unstable")
+            fi
+            for it in 1 2; do
+              cargo clean
+              cargo build "${ARGS[@]}"
+              cp -a target/$val/hash_image hash_image_${val}_$it
+            done
+            shasum hash_image_${val}_1 hash_image_${val}_2
+            diff -q hash_image_${val}_1 hash_image_${val}_2
+          done
+          set +x
+
       - name: Test i686-unknown-linux-gnu target
         if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'stable'
         run: |
